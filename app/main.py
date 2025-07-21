@@ -7,6 +7,12 @@ from datetime import datetime
 from use_cases.wallets.get_all_wallets import GetAllWallets
 from use_cases.wallets.get_one_wallet_by_id import GetOneWalletById
 from use_cases.wallets.create_wallets import CreateWallet
+from use_cases.wallets.update_balance_wallet import UpdateBalanceWallet
+
+from use_cases.transactions.get_one_transaction_by_id import GetOneTransactionById
+from use_cases.transactions.get_all_transactions import GetAllTransactions
+from use_cases.transactions.create_transaction import CreateTransaction
+from use_cases.transactions.get_transactions_by_wallet import GetTransactionsByWallet
 
 app = FastAPI()
 
@@ -40,6 +46,9 @@ class Wallet(BaseModel):
     id: str
     name: str
     balance: float
+    address: str
+    created_at: datetime
+
 
 @app.get(
   "/wallets",
@@ -54,6 +63,7 @@ async def get_wallets():
         return []
     
     return [Wallet(**wallet) for wallet in wallets]
+
 
 @app.get(
   "/wallets/{wallet_id}",
@@ -85,18 +95,39 @@ async def create_wallet(wallet: CreateWalletRequest):
     create_wallet_data = create_wallet_use_case.execute(wallet.quantity)
 
     if not create_wallet_data:
-        return {"error": "Failed to create wallets"}
-    
+        return Response(
+          status_code=status.HTTP_400_BAD_REQUEST, 
+          content={"message": "Erro ao criar wallets"}
+        )
+
     return [Wallet(**data) for data in create_wallet_data]
+
+
+@app.patch(
+  "/wallets/{wallet_id}/update_balance",
+  summary="Atualizar saldo da wallet",
+  tags=["Wallets"],
+  response_model=Wallet
+)
+async def update_wallet_balance(wallet_id: str):
+    update_balance_wallet = UpdateBalanceWallet()
+    wallet = update_balance_wallet.execute(wallet_id=wallet_id)
+
+    if not wallet:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+    return Wallet(**wallet)
 
 """
 # Transactions endpoint
 """
 
 class Transaction(BaseModel):
-    id: str
-    wallet_id: str
+    from_wallet_id: str
+    to_wallet_id: str
     amount: float
+    gas: float
+    tx_hash: str
+    created_at: datetime
 
 @app.get(
   "/transactions",
@@ -105,10 +136,12 @@ class Transaction(BaseModel):
   response_model=list[Transaction]
 )
 async def get_transactions():
-    return [
-        Transaction(id="1", wallet_id="1", amount=50.0),
-        Transaction(id="2", wallet_id="2", amount=75.0)
-    ]
+    get_all_transactions = GetAllTransactions()
+    transactions = get_all_transactions.execute()
+    if not transactions:
+        return []
+    return [Transaction(**tx) for tx in transactions]
+
 
 @app.get(
   "/transactions/{transaction_id}",
@@ -117,10 +150,16 @@ async def get_transactions():
   response_model=Transaction
 )
 async def get_transaction(transaction_id: str):
-    return Transaction(id=transaction_id, wallet_id="1", amount=50.0)
+    get_one_transaction = GetOneTransactionById()
+    transaction = get_one_transaction.execute(transaction_id=transaction_id)
+
+    if not transaction:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+    return Transaction(**transaction)
 
 class CreateTransactionRequest(BaseModel):
-    wallet_id: str
+    wallet_from: str
+    wallet_to: str
     amount: float
 
 @app.post(
@@ -130,4 +169,28 @@ class CreateTransactionRequest(BaseModel):
   response_model=Transaction
 )
 async def create_transaction(transaction: CreateTransactionRequest):
-    return Transaction(id="3", wallet_id=transaction.wallet_id, amount=transaction.amount)
+    create_transaction_use_case = CreateTransaction()
+    transaction_data = create_transaction_use_case.execute(
+        from_wallet_id=transaction.wallet_from,
+        to_wallet_id=transaction.wallet_to,
+        amount=transaction.amount
+    )
+    if not transaction_data:
+        return Response(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            content={"message": "Erro ao criar transação"}  
+        )
+    return Transaction(**transaction_data)
+
+@app.get(
+  "/transactions/wallet/{address}",
+  summary="Listar transações por endereço da wallet",
+  tags=["Transactions"],
+  response_model=list[Transaction]
+)
+async def get_transactions_by_wallet(address: str):
+    get_transactions_by_wallet = GetTransactionsByWallet()
+    transactions = get_transactions_by_wallet.execute(address=address)
+    if not transactions:
+        return []
+    return [Transaction(**tx) for tx in transactions]

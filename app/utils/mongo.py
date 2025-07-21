@@ -13,8 +13,8 @@ class Mongo:
     def close(self):
         self.client.close()
 
-    def find(self):
-        return list(self.collection.find())
+    def find(self, query):
+        return list(self.collection.find(query, {"_id": 0}))
 
     def find_one(self, query):
         return self.collection.find_one(query, {"_id": 0})
