@@ -5,4 +5,4 @@ class GetAllWallets:
         self.wallet_model = Wallet()
 
     def execute(self):
-        return self.wallet_model.find()
+        return self.wallet_model.find({})

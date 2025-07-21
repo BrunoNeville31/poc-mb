@@ -2,3 +2,5 @@ fastapi[standard]
 uvicorn
 pymongo
 pydantic-settings
+eth-account
+web3
