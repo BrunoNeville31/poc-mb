@@ -1,7 +1,12 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from datetime import datetime
+
+from use_cases.wallets.get_all_wallets import GetAllWallets
+from use_cases.wallets.get_one_wallet_by_id import GetOneWalletById
+from use_cases.wallets.create_wallets import CreateWallet
 
 app = FastAPI()
 
@@ -43,10 +48,12 @@ class Wallet(BaseModel):
   response_model=list[Wallet]
 )
 async def get_wallets():
-    return [
-        Wallet(id="1", name="Wallet 1", balance=100.0),
-        Wallet(id="2", name="Wallet 2", balance=200.0)
-    ]
+    get_all_wallets = GetAllWallets()
+    wallets = get_all_wallets.execute()
+    if not wallets:
+        return []
+    
+    return [Wallet(**wallet) for wallet in wallets]
 
 @app.get(
   "/wallets/{wallet_id}",
@@ -55,7 +62,12 @@ async def get_wallets():
   response_model=Wallet
 )
 async def get_wallet(wallet_id: str):
-    return Wallet(id=wallet_id, name=f"Wallet {wallet_id}", balance=100.0)
+    get_one_wallet = GetOneWalletById()
+    wallet = get_one_wallet.execute(id=wallet_id)
+    
+    if not wallet:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+    return Wallet(**wallet)
 
 
 class CreateWalletRequest(BaseModel):
@@ -65,11 +77,17 @@ class CreateWalletRequest(BaseModel):
   "/wallets",
   summary="Criar nova wallet",
   tags=["Wallets"],
-  response_model=Wallet
+  response_model=list[Wallet]
 )
 async def create_wallet(wallet: CreateWalletRequest):
-    return Wallet(id="3", name=f"Wallet {wallet.quantity}", balance=wallet.quantity * 100.0)
+    create_wallet_use_case = CreateWallet()
 
+    create_wallet_data = create_wallet_use_case.execute(wallet.quantity)
+
+    if not create_wallet_data:
+        return {"error": "Failed to create wallets"}
+    
+    return [Wallet(**data) for data in create_wallet_data]
 
 """
 # Transactions endpoint
