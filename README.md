@@ -28,3 +28,23 @@
 - Criação dos Services Principais
   - Wallet MetaMask
   - Cache ou Async(Celery)
+
+
+## Iniciando o projeto
+
+```shell
+# com uso do docker
+cp .env.development .env
+docker-compose build
+docker-compose up -d
+
+# manualmente
+pip install -r requirements.txt
+fastapi dev app/main.py
+```
+
+## Visualizando logs
+
+```shell
+docker-compose logs -f
+```
